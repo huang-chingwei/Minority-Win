@@ -182,6 +182,32 @@
         </h3>
         <span id="hostGameStateLabel" class="text-[10px] font-bold text-slate-500 bg-slate-950 border border-slate-800 px-2 py-1 rounded-full">投票中</span>
       </div>
+      <!-- GAS 即时票数面板 (只在 GAS_URL 有设定时显示) -->
+      <div id="hostLiveVotes" class="hidden bg-slate-950 border border-amber-900/30 rounded-2xl p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <p class="text-[10px] font-bold text-amber-400 flex items-center space-x-1.5">
+            <i class="fa-solid fa-satellite-dish pulse-dot"></i>
+            <span>GAS 即时投票</span>
+          </p>
+          <button onclick="fetchVoteCounts()" class="text-[10px] text-slate-400 hover:text-white transition flex items-center space-x-1">
+            <i class="fa-solid fa-arrows-rotate"></i><span>刷新</span>
+          </button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-center">
+          <div class="bg-slate-900 rounded-xl p-2.5">
+            <p class="text-[9px] text-slate-400 mb-1">⚫ 黑色</p>
+            <p id="liveBlackCount" class="text-2xl font-black text-white">—</p>
+          </div>
+          <div class="bg-slate-900 rounded-xl p-2.5">
+            <p class="text-[9px] text-red-400 mb-1">🔴 红色</p>
+            <p id="liveRedCount" class="text-2xl font-black text-white">—</p>
+          </div>
+        </div>
+        <button onclick="syncVoteCountsToInputs()"
+          class="w-full py-2 rounded-xl bg-amber-950/30 border border-amber-800/40 text-amber-400 text-[10px] font-bold hover:bg-amber-950/50 transition active:scale-95">
+          <i class="fa-solid fa-arrow-down-to-line mr-1"></i>套用至结算输入框
+        </button>
+      </div>
       <div id="hostSettleInputs" class="space-y-3">
         <p class="text-[11px] text-slate-400">请主持人统计现场举牌人数后输入：</p>
         <div class="grid grid-cols-2 gap-3">
@@ -557,7 +583,7 @@ function enterGroup(g) {
   showScreen('deck');
 }
 
-function goToGroups() { stopPoll(); showScreen('group'); }
+function goToGroups() { stopPoll(); stopHostPoll(); showScreen('group'); }
 
 // ── DECK SCREEN ───────────────────────────────────────────────────────────
 function renderDeckScreen() {
@@ -573,19 +599,20 @@ function renderDeckScreen() {
   buildQuickGrid();
   renderScore();
   if (GAS_URL && !isHost) startPoll();
+  if (GAS_URL &&  isHost) startHostPoll();
 }
 
 function renderCard() {
   const card = groupCards[pointer];
   if (!card) return;
-  document.getElementById('cardNumBadge').textContent   = `卡牌 ${card.id} · ${card.group}`;
+  document.getElementById('cardNumBadge').textContent   = `第 ${pointer + 1} 题 · ${card.group}`;
   document.getElementById('cardTopicBadge').textContent = card.topic;
   document.getElementById('cardDesc').textContent       = card.desc;
   document.getElementById('blackText').textContent      = card.black;
   document.getElementById('redText').textContent        = card.red;
   const inner = document.getElementById('cardInner');
   inner.className = inner.className.replace(/neon-\w+/g,'');
-  inner.classList.add(parseInt(card.id) % 2 === 0 ? 'neon-red' : 'neon-gray');
+  inner.classList.add((pointer + 1) % 2 === 0 ? 'neon-red' : 'neon-gray');
   const pct = ((pointer + 1) / groupCards.length) * 100;
   document.getElementById('progressBar').style.width      = pct + '%';
   document.getElementById('footerProgress').textContent   = `${pointer + 1} / ${groupCards.length}`;
@@ -619,6 +646,12 @@ function resetSettleUI() {
   document.getElementById('blackCountInput').value = '0';
   document.getElementById('redCountInput').value   = '0';
   document.getElementById('hostGameStateLabel').textContent = '投票中';
+  // 重置即时票数面板
+  const liveEl = document.getElementById('liveBlackCount');
+  const liveRd = document.getElementById('liveRedCount');
+  if (liveEl) liveEl.textContent = '—';
+  if (liveRd) liveRd.textContent = '—';
+  if (GAS_URL) fetchVoteCounts();   // auto-refresh for new card
 }
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────
@@ -754,7 +787,7 @@ function buildQuickGrid() {
   grid.innerHTML = groupCards.map((card, i) => `
     <button onclick="jumpTo(${i})"
       class="py-3 rounded-xl font-bold text-center border text-xs transition ${i === pointer ? 'border-red-500 bg-red-950/40 text-red-400' : 'border-slate-800 bg-slate-900/40 text-slate-400 hover:bg-slate-800 hover:text-white'}">
-      ${card.id}
+      ${i + 1}
     </button>`).join('');
 }
 
@@ -869,6 +902,44 @@ async function gasPollState() {
 
 function startPoll() { stopPoll(); pollTimer = setInterval(gasPollState, POLL_INTERVAL_MS); }
 function stopPoll()  { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+// ── HOST VOTE POLLING (GAS) ──────────────────────────────────────────────
+let hostPollTimer = null;
+
+async function fetchVoteCounts() {
+  if (!GAS_URL || identity?.role !== 'host') return;
+  const card = groupCards[pointer];
+  if (!card) return;
+  try {
+    const res  = await fetch(`${GAS_URL}?action=getVoteCounts&group=${encodeURIComponent(currentGroup)}&cardId=${encodeURIComponent(card.id)}`);
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('liveBlackCount').textContent = data.black;
+      document.getElementById('liveRedCount').textContent   = data.red;
+    }
+  } catch(e) { console.warn('fetchVoteCounts failed', e); }
+}
+
+function syncVoteCountsToInputs() {
+  const b = document.getElementById('liveBlackCount').textContent;
+  const r = document.getElementById('liveRedCount').textContent;
+  if (b !== '—') document.getElementById('blackCountInput').value = b;
+  if (r !== '—') document.getElementById('redCountInput').value   = r;
+  toast('已套用实时票数！');
+}
+
+function startHostPoll() {
+  stopHostPoll();
+  document.getElementById('hostLiveVotes').classList.remove('hidden');
+  fetchVoteCounts();
+  hostPollTimer = setInterval(fetchVoteCounts, POLL_INTERVAL_MS);
+}
+
+function stopHostPoll() {
+  if (hostPollTimer) { clearInterval(hostPollTimer); hostPollTimer = null; }
+  const el = document.getElementById('hostLiveVotes');
+  if (el) el.classList.add('hidden');
+}
 
 // ── AUDIO ─────────────────────────────────────────────────────────────────
 function playSynth(type) {
