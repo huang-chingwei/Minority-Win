@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>少数派团康 · 多人互动版</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -26,6 +27,7 @@
     .vote-btn.selected-black { background:linear-gradient(135deg,#1e293b,#0f172a); border:2px solid #94a3b8; box-shadow:0 0 20px rgba(148,163,184,.3); }
     .vote-btn.selected-red   { background:linear-gradient(135deg,#450a0a,#7f1d1d); border:2px solid #ef4444; box-shadow:0 0 20px rgba(239,68,68,.4); }
     .vote-btn.locked         { opacity:.6; pointer-events:none; cursor:not-allowed; }
+    #loginQrCode canvas, #loginQrCode img { border-radius:12px; }
   </style>
 </head>
 <body class="min-h-screen no-select">
@@ -51,7 +53,7 @@
         <button id="roleHost" onclick="selectRole('host')"
           class="role-btn py-4 rounded-2xl border-2 border-slate-800 bg-slate-950 flex flex-col items-center space-y-1.5 transition hover:border-amber-500">
           <i class="fa-solid fa-crown text-amber-400 text-lg"></i>
-          <span class="text-xs font-black text-white">0号主持人</span>
+          <span class="text-xs font-black text-white">主持人</span>
           <span class="text-[10px] text-slate-500">控场 · 结算</span>
         </button>
         <button id="rolePlayer" onclick="selectRole('player')"
@@ -67,6 +69,12 @@
       class="w-full py-3.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 hover:from-red-500 hover:to-amber-400 text-slate-950 font-black text-sm tracking-widest transition shadow-lg active:scale-95">
       进入游戏
     </button>
+    <!-- QR Code -->
+    <div class="border-t border-slate-800/60 pt-4 space-y-2">
+      <p class="text-[10px] text-slate-500 font-bold tracking-widest uppercase">扫码邀请朋友加入</p>
+      <div id="loginQrCode" class="flex justify-center"></div>
+      <p class="text-[9px] text-slate-700 break-all">huang-chingwei.github.io/Minority-Win/</p>
+    </div>
     <button onclick="triggerFullReset()" class="text-[10px] text-slate-600 hover:text-red-400 transition">
       <i class="fa-solid fa-arrow-rotate-left mr-1"></i>清除所有存档 / 重置
     </button>
@@ -186,7 +194,7 @@
         </h3>
         <span id="hostGameStateLabel" class="text-[10px] font-bold text-slate-500 bg-slate-950 border border-slate-800 px-2 py-1 rounded-full">投票中</span>
       </div>
-      <!-- GAS 即时票数面板 (只在 GAS_URL 有设定时显示) -->
+      <!-- GAS 即时票数面板 -->
       <div id="hostLiveVotes" class="hidden bg-slate-950 border border-amber-900/30 rounded-2xl p-3 space-y-2">
         <div class="flex items-center justify-between">
           <p class="text-[10px] font-bold text-amber-400 flex items-center space-x-1.5">
@@ -263,7 +271,6 @@
           <div id="scoreAnchor" class="relative pointer-events-none"></div>
         </div>
       </div>
-      <!-- Toggle +1 / cancel button -->
       <button onclick="manualMinorityAdd()" id="manualAddBtn"
         class="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 text-white font-black text-sm tracking-widest shadow-lg active:scale-95 transition flex items-center justify-center space-x-2 border border-white/10">
         <i class="fa-solid fa-hand-holding-hand animate-bounce"></i>
@@ -309,21 +316,6 @@
   <div class="grid grid-cols-5 sm:grid-cols-8 gap-2.5 overflow-y-auto flex-grow" id="quickIndexGrid"></div>
 </div>
 
-<!-- ══ MODAL · SETTLE RESULT ══════════════════════════════════════════════ -->
-<div id="settleModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-  <div class="w-full max-w-xs bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center space-y-5 shadow-2xl">
-    <div id="settleIcon" class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-2xl"></div>
-    <div>
-      <p id="settleTitle" class="text-lg font-black text-white mb-1"></p>
-      <p id="settleRatio" class="text-sm text-slate-300"></p>
-      <p id="settleSelf" class="text-xs text-slate-400 mt-1"></p>
-    </div>
-    <button onclick="closeSettleModal()" class="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 text-slate-950 font-black text-sm transition active:scale-95">
-      继续下一题
-    </button>
-  </div>
-</div>
-
 <!-- ══ MODAL · RULES ══════════════════════════════════════════════════════ -->
 <div id="rulesModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
   <div class="w-full max-w-xs bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-2xl">
@@ -367,6 +359,21 @@
   </div>
 </div>
 
+<!-- ══ MODAL · SETTLE RESULT ══════════════════════════════════════════════ -->
+<div id="settleModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-xs bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center space-y-5 shadow-2xl">
+    <div id="settleIcon" class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-2xl"></div>
+    <div>
+      <p id="settleTitle" class="text-lg font-black text-white mb-1"></p>
+      <p id="settleRatio" class="text-sm text-slate-300"></p>
+      <p id="settleSelf" class="text-xs text-slate-400 mt-1"></p>
+    </div>
+    <button onclick="closeSettleModal()" class="w-full py-3 rounded-xl bg-gradient-to-r from-red-600 to-amber-500 text-slate-950 font-black text-sm transition active:scale-95">
+      继续下一题
+    </button>
+  </div>
+</div>
+
 <!-- ══ MODAL · RESET CONFIRM ══════════════════════════════════════════════ -->
 <div id="resetModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
   <div class="w-full max-w-xs bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center space-y-4 shadow-2xl">
@@ -387,9 +394,10 @@
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwy1WAencmcS462RkmondlDFTTkLTT7HUCJnFUWbn8-jjDHBEKHcy2DGu2M15wHWU_4/exec';
+const GAME_URL = 'https://huang-chingwei.github.io/Minority-Win/';
 const POLL_INTERVAL_MS = 3000;
 
-// ── QUESTION BANK (96 cards) ──────────────────────────────────────────────
+// ── QUESTION BANK ─────────────────────────────────────────────────────────
 const GROUPS = ['热与诚','醉与乏','龟与软'];
 const GROUP_COLORS = {
   '热与诚': { accent:'text-rose-400',  border:'border-rose-800/50',  bg:'bg-rose-950/20',  icon:'fa-heart' },
@@ -398,102 +406,102 @@ const GROUP_COLORS = {
 };
 
 const ALL_CARDS = [
-  {id:`01`,group:`热与诚`,topic:`职场老登对抗`,desc:`部门老登主管又想把黑锅推给你，你怎么对抗？`,black:`每次开会都当众跟他硬杠，数据甩他脸上。`,red:`表面疯狂拍马屁，背后搜集证据偷偷捅一刀。`},
+  {id:`01`,group:`热与诚`,topic:`职场老登对抗`,desc:`部门老登主管又想把黑锅推给你，你怎么对抗？`,black:`每次开会都当众跟TA硬杠，数据甩TA脸上。`,red:`表面疯狂拍马屁，背后搜集证据偷偷捅一刀。`},
   {id:`02`,group:`热与诚`,topic:`大老板的秘密`,desc:`撞见大老板跟刚来的实习生在办公室举止亲密？`,black:`当没看到开溜，私下跟要好同事疯狂吃瓜。`,red:`假装进去送文件，巧妙留下暗示自己知道了。`},
-  {id:`03`,group:`热与诚`,topic:`同事不要脸抢功`,desc:`熬夜一周做的方案，被同组同事抢先说是他的功劳？`,black:`当场打断发言，拿出初版修改纪录撕烂他的脸。`,red:`笑着附和，在后续执行中给他挖个致命大坑。`},
-  {id:`04`,group:`热与诚`,topic:`生病与答辩抉择`,desc:`明天是关键晋升答辩，当晚突发肠胃炎高烧39度？`,black:`直接请假住院，命比工作重要，大不了明年再战。`,red:`吞三倍止痛药强撑去现场，把惨状当加分项。`},
-  {id:`05`,group:`热与诚`,topic:`降落奇葩关系户`,desc:`新来个毫无能力的空降关系户成了你的指引师父？`,black:`绝不给面子，开会时用专业术语狠狠羞辱他。`,red:`把他捧上天，盲目执行烂点子等他闹天大笑话。`},
-  {id:`06`,group:`热与诚`,topic:`年终奖大缩水`,desc:`公司业绩大好，年终奖却只发两百块还叫你共体时艰？`,black:`光速在工位刷求职网，在离职网站上把公司黑惨。`,red:`开启彻底摆烂摸鱼模式，用带薪上厕所赚回来。`},
-  {id:`07`,group:`龟与软`,topic:`办公室恋情大翻车`,desc:`跟同事秘密地下恋，不小心把调情讯息发到百人群？`,black:`光速撤回并在群里发「号码被盗」，立刻请假。`,red:`干脆大方官宣，在群里发红包顺便宣布结婚。`},
-  {id:`08`,group:`龟与软`,topic:`前任的挑衅`,desc:`婚宴把你伤最深、无缝接轨的前任发喜帖挑衅问你去不去？`,black:`直接封锁拉黑，回一句「祝你们早日离婚」。`,red:`花大钱租豪车盛装出席，送上最薄的红包砸场。`},
-  {id:`09`,group:`龟与软`,topic:`伴侣的深夜暧昧`,desc:`无意间看到伴侣手机弹出异性的深夜暧昧讯息？`,black:`当场炸毛，手机砸他脸上要求解锁交代清楚。`,red:`按兵不动，趁他洗澡用密码解锁并备份证据。`},
-  {id:`10`,group:`醉与乏`,topic:`扶弟魔的婚姻要挟`,desc:`谈婚论嫁时，对方父母强烈要求你出钱帮小舅子买房？`,black:`当场掀桌大骂吸血鬼，这婚不结了直接分手。`,red:`表面答应，暗中拟定极苛刻婚前协议逼退对方。`},
-  {id:`11`,group:`龟与软`,topic:`窒息的查岗狂魔`,desc:`伴侣是查岗狂魔，每小时都要视讯且跟朋友吃饭要拍片？`,black:`直接爆发冷战，控诉变态控制欲并要私人空间。`,red:`以毒攻毒，一天打五十个电话查他查到他求饶。`},
-  {id:`12`,group:`龟与软`,topic:`相亲遇到奇葩极品`,desc:`相亲对象一坐下就盘问财产，还要求婚后全包家务？`,black:`直接叫服务生AA制，甩下咖啡钱翻白眼走人。`,red:`顺着演下去，假装负债百万且家暴，吓死对方。`},
+  {id:`03`,group:`热与诚`,topic:`同事不要脸抢功`,desc:`熬夜一周做的方案，被同组同事抢先说是TA的功劳？`,black:`当场疯狂地确认方案细节问到TA哑口无言。`,red:`笑着附和，在后续执行中给TA挖个致命大坑。`},
+  {id:`04`,group:`热与诚`,topic:`生病与答辩抉择`,desc:`明天有重要会议，当晚突发肠胃炎高烧39度？`,black:`直接请假，命比工作重要，大不了之后再战。`,red:`吞三倍止痛药强撑去现场，把惨状当加分项。`},
+  {id:`05`,group:`热与诚`,topic:`降落奇葩关系户`,desc:`新来个毫无能力的空降关系户成了你的小组长？`,black:`绝不给面子，开会时用专业术语狠狠羞辱TA。`,red:`把TA捧上天，盲目执行烂点子等TA闹天大笑话。`},
+  {id:`06`,group:`热与诚`,topic:`年终奖大缩水`,desc:`公司业绩大好，年终奖却每年降低还对你说不如去年努力？`,black:`再接再厉，让TA明年没有办法降你分。`,red:`开启彻底摆烂摸鱼模式，用带薪上厕所赚回来。`},
+  {id:`07`,group:`龟与软`,topic:`办公室恋情大翻车`,desc:`跟同事秘密地下恋，不小心把调情讯息发到百人群？`,black:`光速撤回并在群里发"号码被盗"，立刻请假。`,red:`干脆大方官宣，在群里发红包顺便宣布喜事。`},
+  {id:`08`,group:`龟与软`,topic:`前任的挑衅`,desc:`婚宴把你伤最深、无缝接轨的前任发喜帖挑衅问你去不去？`,black:`直接封锁拉黑，回一句"祝你们早日离婚"。`,red:`花大钱租豪车盛装出席，送上最薄的红包砸场。`},
+  {id:`09`,group:`龟与软`,topic:`伴侣的深夜暧昧`,desc:`无意间看到伴侣手机弹出异性的深夜暧昧讯息？`,black:`当场炸毛，手机砸TA脸上要求解锁交代清楚。`,red:`按兵不动，趁TA洗澡用密码解锁并备份证据。`},
+  {id:`10`,group:`醉与乏`,topic:`偏心家人的婚姻要挟`,desc:`谈婚论嫁时，对方父母强烈要求你出钱帮伴侣的手足买房？`,black:`当场掀桌大骂吸血鬼，这婚不结了直接分手。`,red:`表面答应，暗中拟定极苛刻婚前协议逼退对方。`},
+  {id:`11`,group:`龟与软`,topic:`窒息的查岗狂魔`,desc:`伴侣是查岗狂魔，每小时都要视讯且跟朋友吃饭要拍片？`,black:`直接爆发冷战，控诉变态控制欲并要私人空间。`,red:`以毒攻毒，一天打五十个电话查TA查到TA求饶。`},
+  {id:`12`,group:`龟与软`,topic:`相亲遇到奇葩极品`,desc:`相亲对象一坐下就盘问财产，还帮你规划了接下来的人生？`,black:`直接叫服务生AA制，甩下咖啡钱翻白眼走人。`,red:`顺着演下去，假装负债百万且家暴，吓死对方。`},
   {id:`13`,group:`醉与乏`,topic:`背叛的双重标准`,desc:`如果必须在伴侣的两种出轨形式中选一个，哪个更不能原谅？`,black:`肉体出轨。只要跟别人发生关系就生理性反胃。`,red:`精神出轨。朝夕相处心里装着别人更恐怖。`},
-  {id:`14`,group:`龟与软`,topic:`备胎的终极考验`,desc:`苦追三年的女神深夜哭诉被渣男甩了叫你过去，你会？`,black:`化身装逼使者痛骂渣男，默默送她回家继续当备胎。`,red:`趁虚而入展现极致温柔，趁她脆弱表白强行转正。`},
-  {id:`15`,group:`醉与乏`,topic:`死党借钱不还`,desc:`大学死党借了五万块不还，天天朋友圈晒出国旅游？`,black:`直接在旅游动态下公开催债，让他面子扫地。`,red:`编造家里出大事故急需救命钱，去他家找父母哭。`},
-  {id:`16`,group:`龟与软`,topic:`绿茶朋友背后中伤`,desc:`发现表面单纯的好友，私底下到处造谣阴阳怪气你？`,black:`在共同群组直接甩截图证据，公开撕烂她的脸。`,red:`假装不知道，故意透露假黑料等她自食恶果。`},
-  {id:`17`,group:`醉与乏`,topic:`道德绑架式婚礼`,desc:`十年没联络的同学突然发电子请帖，强逼你当伴郎伴娘？`,black:`冷漠回复「那天有事」，发 50 块红包后果断封锁。`,red:`大方答应，在婚礼互动环节开低俗玩笑搞砸全场。`},
-  {id:`18`,group:`醉与乏`,topic:`讨人厌亲戚炫耀`,desc:`亲戚当众炫耀儿子考上公务员，嘲讽你 30 岁还在当社畜？`,black:`当场冷笑怼回去：「几千块工资连厕所都买不起」。`,red:`热情捧杀，暗中打听单位并匿名举报他上班摸鱼。`},
-  {id:`19`,group:`龟与软`,topic:`奇葩室友带人过夜`,desc:`合租室友天天带异性过夜且隔音巨差，还偷用你东西？`,black:`把垃圾外卖堆他门口，在客厅大吵限期搬走。`,red:`在被偷用的洗发精里混入脱毛膏，给他终生教训。`},
-  {id:`20`,group:`醉与乏`,topic:`聚会买单修罗场`,desc:`说好 AA 制的同学会，发起人点了巨贵红酒暗示你买单？`,black:`当场拒绝，表示只付自己的份，搞僵全场气氛。`,red:`假装肚子痛上厕所直接溜走，在群里发账单催款。`},
-  {id:`21`,group:`热与诚`,topic:`讨厌同事发言翻车`,desc:`极度讨厌的同事在大会上讲错核心数据，只有你看出来？`,black:`立刻举手指出错误修正他，让他当场社会性死亡。`,red:`保持沉默微笑点头，等他把错报告交给客户闹大。`},
+  {id:`14`,group:`龟与软`,topic:`备胎的终极考验`,desc:`暗恋三年的心仪对象深夜哭诉被甩了叫你过去陪TA，你会？`,black:`化身装逼使者陪TA痛哭，默默送TA回家继续当备胎。`,red:`趁虚而入展现极致魅力，趁脆弱时表白强行转正。`},
+  {id:`15`,group:`醉与乏`,topic:`好友借钱不还`,desc:`大学好友借了五万块不还，天天朋友圈晒出国旅游？`,black:`直接在旅游动态下公开催债，让TA面子扫地。`,red:`编造家里出大事故急需救命钱，去TA家找父母哭。`},
+  {id:`16`,group:`龟与软`,topic:`绿茶朋友背后中伤`,desc:`发现表面单纯的好友，私底下到处造谣阴阳怪气你？`,black:`在共同群组直接甩截图证据，公开撕烂TA的脸。`,red:`假装不知道，故意透露假黑料等TA自食恶果。`},
+  {id:`17`,group:`醉与乏`,topic:`道德绑架式婚礼`,desc:`曾经霸凌你的小学同学突然发电子请帖，强逼你当伴郎伴娘？`,black:`冷漠回复"那天有事"，发50块红包后果断封锁。`,red:`大方答应，在婚礼互动环节开低俗玩笑搞砸全场。`},
+  {id:`18`,group:`醉与乏`,topic:`讨人厌亲戚炫耀`,desc:`亲戚当众炫耀孩子考上公务员，嘲讽你30岁还在当社畜？`,black:`当场冷笑怼回去："几千块工资连厕所都买不起"。`,red:`热情捧杀，暗中打听单位并匿名举报TA上班摸鱼。`},
+  {id:`19`,group:`龟与软`,topic:`奇葩室友带人过夜`,desc:`合租室友天天带异性过夜且隔音巨差，还偷用你东西？`,black:`把垃圾外卖堆TA门口，在客厅大吵限期搬走。`,red:`在被偷用的洗发精里混入脱毛膏，给TA终生教训。`},
+  {id:`20`,group:`醉与乏`,topic:`聚会买单修罗场`,desc:`说好AA制的同学会，发起人点了巨贵红酒暗示你买单？`,black:`当场拒绝，表示只付自己的份，搞僵全场气氛。`,red:`假装肚子痛上厕所直接溜走，在群里发账单催款。`},
+  {id:`21`,group:`热与诚`,topic:`讨厌同事发言翻车`,desc:`极度讨厌的同事在大会上讲错核心数据，只有你看出来？`,black:`立刻举手指出错误修正TA，让TA当场社会性死亡。`,red:`保持沉默微笑点头，等TA把错报告交给客户闹大。`},
   {id:`22`,group:`龟与软`,topic:`父母的窒息翻看`,desc:`父母趁你不在家偷拆你快递、翻看日记还说是为你好？`,black:`在家大发雷霆摔门而去，直接搬走断绝往来。`,red:`表面应酬，房间装满监控并放吓人的假秘密钓鱼。`},
-  {id:`23`,group:`醉与乏`,topic:`重男轻女分家产`,desc:`家里拆迁分三套房，父母把大房给废柴弟弟，只给你小房？`,black:`找律师起诉父母闹上法庭，跟这家庭彻底撕破脸。`,red:`欣然接受，私下断绝养老费让弟弟独扛父母晚年。`},
+  {id:`23`,group:`醉与乏`,topic:`偏心分家产`,desc:`家里拆迁分三套房，父母把大房给废柴手足，只给你小房？`,black:`找律师起诉父母闹上法庭，跟这家庭彻底撕破脸。`,red:`欣然接受，私下断绝养老费让手足独扛父母晚年。`},
   {id:`24`,group:`龟与软`,topic:`养七年发现非亲生`,desc:`偶然鉴定发现养了七年的孩子非亲生，伴侣还在装恩爱？`,black:`当场摊牌把报告甩两家父母面前，起诉净身出户。`,red:`隐忍不发，暗中转移共同财产，找机会合法脱身。`},
-  {id:`25`,group:`龟与软`,topic:`撞见闺蜜老公出轨`,desc:`撞见好闺蜜的老公抱着辣妹开房，而闺蜜正怀孕在家？`,black:`立刻拍照发给闺蜜，打电话叫她来看清渣男。`,red:`假装没看到，匿名把照片寄给男方敲诈封口费。`},
-  {id:`26`,group:`龟与软`,topic:`黑历史被当众揭穿`,desc:`学生时代最想埋葬的黑历史被讨厌的人在聚会上提起？`,black:`当场黑脸翻桌怒吼，酒杯砸他脸上让聚会不欢而散。`,red:`跟着哈哈大笑自嘲，随后状似无意爆出对方劈腿。`},
-  {id:`27`,group:`醉与乏`,topic:`伴侣的惊天私房钱`,desc:`惊觉伴侣瞒着你存了五十万，平时却连烟钱都跟你要？`,black:`全部没收并召开家庭批斗会，逼他交代所有来源。`,red:`不动声色换成假钞，或拿这笔钱给自己买奢侈品。`},
-  {id:`28`,group:`醉与乏`,topic:`网暴狂潮的抉择`,desc:`讨厌的同行被冤枉全网黑，此时你只要踩一脚就能爆红？`,black:`坚守道德底线，发声帮他澄清事实，哪怕被连带网暴。`,red:`顺应民意跟风发文痛斥，收割流量吃一波人血馒头。`},
-  {id:`29`,group:`醉与乏`,topic:`代购名牌包变假货`,desc:`帮死党代购十万块的包，回国发现买到超逼真高仿且退不掉？`,black:`向死党坦白，自己吞下十万损失，重买真包给她。`,red:`硬著头皮当真包送，反正做得逼真一辈子不穿帮。`},
-  {id:`30`,group:`龟与软`,topic:`单车蹭到劳斯莱斯`,desc:`单车蹭到违停劳斯莱斯，花臂大哥下车揪你领子要十万？`,black:`直接认栽哭着打电话凑钱，或老实等警察来定责。`,red:`眼一闭往地上一躺疯狂抽搐，大喊豪车撞人把事闹大。`},
-  {id:`31`,group:`热与诚`,topic:`键盘死敌变新同事`,desc:`网上跟你互喷三天的死黑粉，上班发现是新来的同组同事？`,black:`中午约他到安全通道，摊开账号看谁拳头硬。`,red:`表面热情请喝咖啡，暗中在工作文档动手脚让他走人。`},
-  {id:`32`,group:`醉与乏`,topic:`暴富后的穷酸亲戚`,desc:`中了一亿大奖，平时极不联络的亲戚集体上门跪求借百万？`,black:`大门紧闭拿扩音器喊「以前爱理不理，现在高攀不起」。`,red:`拿出借款合同，利息定最高并拿他们的房子做抵押。`},
-  {id:`33`,group:`热与诚`,topic:`迟到大王的借口`,desc:`早上睡过头迟到两小时，老板正在办公室门口冷冷看着你？`,black:`坦白承认睡过头，并主动要求扣除今天半天薪水。`,red:`编造在路上扶老奶奶，或目睹车祸主动协助救人。`},
-  {id:`34`,group:`热与诚`,topic:`不小心已读主管`,desc:`周末晚上十一点主管发工作消息，你不小心点开「已读」了？`,black:`假装没看见，周一上班再回复「不好意思周末没带手机」。`,red:`立刻回复「收到我处理」，然后连夜加班把活做完。`},
-  {id:`35`,group:`热与诚`,topic:`尾牙大奖的诱惑`,desc:`年会抽中最大奖十万，同桌同事疯狂起哄叫你请全公司下午茶？`,black:`铁了心拒绝，只请同桌喝饮料，剩下九万多自己存着。`,red:`大方请全公司高档茶点，展现格局顺便拉拢人脉关系。`},
-  {id:`36`,group:`热与诚`,topic:`讨厌同事的生日`,desc:`组里最讨厌的同事过生日，大家合资买蛋糕要求每人写卡片？`,black:`冷淡签个名字，只写「生日快乐」四个字敷衍了事。`,red:`写满煽情且虚假的吹捧赞美，夸他是全公司最亮眼的星。`},
-  {id:`37`,group:`热与诚`,topic:`电梯里的尴尬屁`,desc:`在挤满高阶主管的电梯里，你不小心放了个极臭的无声屁？`,black:`面无表情，跟着大家一起转头捂着鼻子寻找「真凶」。`,red:`尴尬认领，并主动笑著说「抱歉我今天中午肠胃不太好」。`},
-  {id:`38`,group:`醉与乏`,topic:`借车给朋友的代价`,desc:`好友借你的百万新车去约会，还车时车门有一条长刮痕他没提？`,black:`当面指出刮痕要求他赔偿，哪怕这会破坏多年的友情。`,red:`默默吞下委屈，自己自费去原厂修好，当作不知情。`},
-  {id:`39`,group:`龟与软`,topic:`家庭群组的相片`,desc:`不小心把发给伴侣的火辣暗示私密照，发进了 30 人的亲戚长辈群？`,black:`光速撤回，假装手机中毒，在群里发一条「防诈骗公告」。`,red:`大方在群里自嘲「发错了，大家眼睛业障重，当没看到吧」。`},
-  {id:`40`,group:`醉与乏`,topic:`真话与假话抉择`,desc:`伴侣剪了个极难看像被啃过的发型，兴奋地问你好看吗？`,black:`说实话这剪得极烂，并立刻帮他预约另一家店拯救发型。`,red:`违心大赞「超有欧美前卫风情！」并拍照帮他发朋友圈。`},
-  {id:`41`,group:`龟与软`,topic:`前任的深夜电话`,desc:`半夜三点前任突然打来电话，带着哭腔说「我还是好想你」？`,black:`直接挂断并永久封锁，不想让现在的生活有任何波澜。`,red:`默默听他哭诉安慰他，内心暗自评估有没有复合机会。`},
+  {id:`25`,group:`龟与软`,topic:`撞见好友伴侣出轨`,desc:`撞见好友的伴侣抱着别人开房，而好友正待在家里？`,black:`立刻拍照发给好友，打电话叫TA来看清对方。`,red:`假装没看到，匿名把照片寄给对方敲诈封口费。`},
+  {id:`26`,group:`龟与软`,topic:`黑历史被当众揭穿`,desc:`学生时代最想埋葬的黑历史被讨厌的人在聚会上提起？`,black:`当场黑脸翻桌怒吼，酒杯砸TA脸上让聚会不欢而散。`,red:`跟着哈哈大笑自嘲，随后状似无意爆出对方劈腿。`},
+  {id:`27`,group:`醉与乏`,topic:`伴侣的惊天私房钱`,desc:`惊觉伴侣瞒着你存了五十万，平时却连零花钱都跟你要？`,black:`全部没收并召开家庭批斗会，逼TA交代所有来源。`,red:`不动声色换成假钞，或拿这笔钱给自己买奢侈品。`},
+  {id:`28`,group:`醉与乏`,topic:`网暴狂潮的抉择`,desc:`讨厌的同行被冤枉全网黑，此时你只要踩一脚就能爆红？`,black:`坚守道德底线，发声帮TA澄清事实，哪怕被连带网暴。`,red:`顺应民意跟风发文痛斥，收割流量吃一波人血馒头。`},
+  {id:`29`,group:`醉与乏`,topic:`代购名牌包变假货`,desc:`帮好友代购十万块的包，回国发现买到超逼真高仿且退不掉？`,black:`向好友坦白，自己吞下十万损失，重买真包给TA。`,red:`硬着头皮当真包送，反正做得逼真一辈子不穿帮。`},
+  {id:`30`,group:`龟与软`,topic:`单车蹭到豪车`,desc:`单车蹭到违停豪车，车主下车揪你领子要十万？`,black:`直接认栽哭着打电话凑钱，或老实等警察来定责。`,red:`眼一闭往地上一躺疯狂抽搐，大喊豪车撞人把事闹大。`},
+  {id:`31`,group:`热与诚`,topic:`键盘死敌变新同事`,desc:`网上跟你互喷三天的死黑粉，上班发现是新来的同组同事？`,black:`中午约TA到安全通道，摊开账号看谁拳头硬。`,red:`表面热情请喝咖啡，暗中在工作文档动手脚让TA走人。`},
+  {id:`32`,group:`醉与乏`,topic:`暴富后的穷酸亲戚`,desc:`中了一亿大奖，平时极不联络的亲戚集体上门跪求借百万？`,black:`大门紧闭拿扩音器喊"以前爱理不理，现在高攀不起"。`,red:`拿出借款合同，利息定最高并拿他们的房子做抵押。`},
+  {id:`33`,group:`热与诚`,topic:`迟到大王的借口`,desc:`早上睡过头迟到两小时，老板正在办公室门口冷冷看着你？`,black:`坦白承认睡过头，并主动要求扣除今天半天薪水。`,red:`编造在路上扶老人，或目睹车祸主动协助救人。`},
+  {id:`34`,group:`热与诚`,topic:`不小心已读主管`,desc:`周末晚上十一点主管发工作消息，你不小心点开"已读"了？`,black:`假装没看见，周一上班再回复"不好意思周末没带手机"。`,red:`立刻回复"收到我处理"，然后连夜加班把活做完。`},
+  {id:`35`,group:`热与诚`,topic:`年会大奖的诱惑`,desc:`年会抽中最大奖十万，同桌同事疯狂起哄叫你请全公司下午茶？`,black:`铁了心拒绝，只请同桌喝饮料，剩下九万多自己存着。`,red:`大方请全公司高档茶点，展现格局顺便拉拢人脉关系。`},
+  {id:`36`,group:`热与诚`,topic:`讨厌同事的生日`,desc:`组里最讨厌的同事过生日，大家合资买蛋糕要求每人写卡片？`,black:`冷淡签个名字，只写"生日快乐"四个字敷衍了事。`,red:`写满煽情且虚假的吹捧赞美，夸TA是全公司最亮眼的星。`},
+  {id:`37`,group:`热与诚`,topic:`电梯里的尴尬屁`,desc:`在挤满高阶主管的电梯里，你不小心放了个极臭的无声屁？`,black:`面无表情，跟着大家一起转头捂着鼻子寻找"真凶"。`,red:`尴尬认领，并主动笑着说"抱歉我今天中午肠胃不太好"。`},
+  {id:`38`,group:`醉与乏`,topic:`借车给朋友的代价`,desc:`好友借你的百万新车去约会，还车时车门有一条长刮痕TA没提？`,black:`当面指出刮痕要求TA赔偿，哪怕这会破坏多年的友情。`,red:`默默吞下委屈，自己自费去原厂修好，当作不知情。`},
+  {id:`39`,group:`龟与软`,topic:`家庭群组的相片`,desc:`不小心把发给伴侣的火辣暗示私密照，发进了30人的亲戚长辈群？`,black:`光速撤回，假装手机中毒，在群里发一条"防诈骗公告"。`,red:`大方在群里自嘲"发错了，大家眼睛业障重，当没看到吧"。`},
+  {id:`40`,group:`醉与乏`,topic:`真话与假话抉择`,desc:`伴侣剪了个极难看像被啃过的发型，兴奋地问你好看吗？`,black:`说实话这剪得极烂，并立刻帮TA预约另一家店拯救发型。`,red:`违心大赞"超有前卫风情！"并拍照帮TA发朋友圈。`},
+  {id:`41`,group:`龟与软`,topic:`前任的深夜电话`,desc:`半夜三点前任突然打来电话，带着哭腔说"我还是好想你"？`,black:`直接挂断并永久封锁，不想让现在的生活有任何波澜。`,red:`默默听TA哭诉安慰TA，内心暗自评估有没有复合机会。`},
   {id:`42`,group:`热与诚`,topic:`餐厅吃出异物`,desc:`在高级餐厅和即将签约的重要客户吃饭，菜里发现半只蟑螂？`,black:`立刻大声叫经理过来理论，要求整桌免单并严厉赔偿道歉。`,red:`不露声色纸巾盖住，私下叫服务员去角落低调解决。`},
-  {id:`43`,group:`龟与软`,topic:`死党的伴侣出轨`,desc:`偶然看见你最好的死党的伴侣在街上和陌生人深吻？`,black:`立刻拍照录像，当天晚上就把所有证据发给死党看清真相。`,red:`装作没看见，心想多一事最后往往两边不是人。`},
-  {id:`44`,group:`醉与乏`,topic:`借钱给亲戚的修罗场`,desc:`平时没联络的亲戚借十万说给孩子交学费，你却听说他想买股？`,black:`直接一口回绝，哭穷说自己也身负百万房贷车贷活不下去了。`,red:`大方借他，但是要求必须签字据，并按照法律定出利息。`},
-  {id:`45`,group:`醉与乏`,topic:`博爱座的考验`,desc:`你在公车上累到快睡着，面前站了一位肚子微凸但不太确定的孕妇？`,black:`闭上眼睛继续装睡，心想我也付了票钱，我也工作得很累。`,red:`立刻站起来热情让座，即使自己双腿痛到不停发抖。`},
+  {id:`43`,group:`龟与软`,topic:`好友的伴侣出轨`,desc:`偶然看见你最好的好友的伴侣在街上和陌生人深吻？`,black:`立刻拍照录像，当天晚上就把所有证据发给好友看清真相。`,red:`装作没看见，心想多一事最后往往两边不是人。`},
+  {id:`44`,group:`醉与乏`,topic:`借钱给亲戚的修罗场`,desc:`平时没联络的亲戚借十万说给孩子交学费，你却听说TA想买股？`,black:`直接一口回绝，哭穷说自己也身负百万房贷车贷活不下去了。`,red:`大方借TA，但是要求必须签字据，并按照法律定出利息。`},
+  {id:`45`,group:`醉与乏`,topic:`博爱座的考验`,desc:`你在公交车上累到快睡着，面前站了一位肚子微凸但不太确定的孕妇？`,black:`闭上眼睛继续装睡，心想我也付了票钱，我也工作得很累。`,red:`立刻站起来热情让座，即使自己双腿痛到不停发抖。`},
   {id:`46`,group:`醉与乏`,topic:`捡到巨款的诱惑`,desc:`在无人的暗巷捡到一个皮夹，里面有十万现金但没有证件？`,black:`立刻送去最近的警察局做笔录，做个诚实守法的好公民。`,red:`塞进自己的口袋占为己有，当作是老天对自己的福利补偿。`},
-  {id:`47`,group:`醉与乏`,topic:`路边车祸的抉择`,desc:`骑车遇到一场车祸肇事逃逸，害者在地上呻吟而四周无人？`,black:`当作没看见，光速骑走，深怕被现场监控或受害者赖上。`,red:`停下摩托车报警叫救护车，在现场守护直到医护人员抵达。`},
-  {id:`48`,group:`龟与软`,topic:`暗恋对象的评价`,desc:`听到暗恋对象私下说你「他人很好，但长相真的不行」？`,black:`自尊心受创，立刻将他封锁冷处理，退回冰冷同事关系。`,red:`激发斗志，开始大改造和学穿搭，发誓一定要追到他。`},
+  {id:`47`,group:`醉与乏`,topic:`路边车祸的抉择`,desc:`骑车遇到一场车祸肇事逃逸，受害者在地上呻吟而四周无人？`,black:`当作没看见，光速骑走，深怕被现场监控或受害者赖上。`,red:`停下车报警叫救护车，在现场守护直到医护人员抵达。`},
+  {id:`48`,group:`龟与软`,topic:`暗恋对象的评价`,desc:`听到暗恋对象私下说你"TA人很好，但长相真的不行"？`,black:`自尊心受创，立刻将TA封锁冷处理，退回冰冷同事关系。`,red:`激发斗志，开始大改造和学穿搭，发誓一定要追到TA。`},
   {id:`49`,group:`醉与乏`,topic:`外卖等太久的报复`,desc:`点外卖等了足足两小时，送来时汤全洒了且骑手态度极差？`,black:`当面痛斥并给予一星差评，同时申请全额退款维护权益。`,red:`默默收下，给个中评，心想跑单也辛苦，多一事不如少一事。`},
-  {id:`50`,group:`热与诚`,topic:`主管的致命口臭`,desc:`主管每次交代工作都喜欢贴得很近，但他有严重的口臭？`,black:`每次他靠近就笑著递上薄荷糖问「主管来一颗？这超好用」。`,red:`全程憋气，直到憋到满脸通红快窒息时，才稍微往后退一步。`},
-  {id:`51`,group:`热与诚`,topic:`同事的极致体味`,desc:`坐在隔壁的同事有非常浓烈的狐臭味，熏得大家头昏脑涨？`,black:`私下向 HR 反映情况，请公司以环境卫生或健康问题提醒他。`,red:`默默买个超大风力的桌上电风扇，并每天戴两层口罩上班。`},
-  {id:`52`,group:`醉与乏`,topic:`朋友圈的炫富`,desc:`发现身边某个朋友天天发豪车名表，其实全是网上租的？`,black:`私下和其他共同朋友疯狂吃瓜爆料，拆穿他的虚荣面具。`,red:`继续在下面当一号粉丝，大力吹捧「太奢华了求大佬带」。`},
-  {id:`53`,group:`醉与乏`,topic:`超商的多找零钱`,desc:`在超商买饮料，心不在焉的店员把千元大钞当百元，多找了九百？`,black:`立刻把钱退还给店员，提醒他看清楚，免得他自己倒贴。`,red:`默默把钱放进钱包，心想今天是赚到爱心便当的幸运日。`},
-  {id:`54`,group:`热与诚`,topic:`同事的合同失误`,desc:`偶然发现同组好队友在给大客户的合同上，报价少写了一个零？`,black:`立刻在部门群组通报，让主管知道你及时阻止了公司亏损。`,red:`私下偷偷联系他，陪他一起修改，卖他一个天大人情。`},
+  {id:`50`,group:`热与诚`,topic:`主管的致命口臭`,desc:`主管每次交代工作都喜欢贴得很近，但TA有严重的口臭？`,black:`每次TA靠近就笑着递上薄荷糖问"主管来一颗？这超好用"。`,red:`全程憋气，直到憋到满脸通红快窒息时，才稍微往后退一步。`},
+  {id:`51`,group:`热与诚`,topic:`同事的极致体味`,desc:`坐在隔壁的同事有非常浓烈的狐臭味，熏得大家头昏脑涨？`,black:`私下向HR反映情况，请公司以环境卫生或健康问题提醒TA。`,red:`默默买个超大风力的桌上电风扇，并每天戴两层口罩上班。`},
+  {id:`52`,group:`醉与乏`,topic:`朋友圈的炫富`,desc:`发现身边某个朋友天天发豪车名表，其实全是网上租的？`,black:`私下和其他共同朋友疯狂吃瓜爆料，拆穿TA的虚荣面具。`,red:`继续在下面当一号粉丝，大力吹捧"太奢华了求大佬带"。`},
+  {id:`53`,group:`醉与乏`,topic:`超市的多找零钱`,desc:`在超市买饮料，心不在焉的店员把千元大钞当百元，多找了九百？`,black:`立刻把钱退还给店员，提醒TA看清楚，免得TA自己倒贴。`,red:`默默把钱放进钱包，心想今天是赚到爱心便当的幸运日。`},
+  {id:`54`,group:`热与诚`,topic:`同事的合同失误`,desc:`偶然发现同组好队友在给大客户的合同上，报价少写了一个零？`,black:`立刻在部门群组通报，让主管知道你及时阻止了公司亏损。`,red:`私下偷偷联系TA，陪TA一起修改，卖TA一个天大人情。`},
   {id:`55`,group:`热与诚`,topic:`年会上的搞笑表演`,desc:`公司年会要求新员工在所有高层面前，反串跳极度搞笑的低俗舞蹈？`,black:`悍然拒绝上台，哪怕今年考绩拿垫底也绝对不丢人现眼。`,red:`拼了！自己准备各种夸张假发道具，抢夺全场高层目光。`},
-  {id:`56`,group:`醉与乏`,topic:`路人牙缝卡菜渣`,desc:`地铁上你对面坐着一个气质美女/帅哥，但牙缝卡了一片大青菜？`,black:`主动礼貌轻声提醒他，即使可能会让他尴尬得想跳车。`,red:`在内心憋笑，低头看手机装作不知道，任由他尴尬一整路。`},
-  {id:`57`,group:`热与诚`,topic:`公共厕所没纸`,desc:`大便完发现没有卫生纸，而此时外面只有你最讨厌的同事？`,black:`放下尊严大声向他求助，事后请他喝星巴克当破冰契机。`,red:`绝不向死对头示弱，默默在厕所干等一小时用内裤解决。`},
-  {id:`58`,group:`龟与软`,topic:`发现朋友出轨照片`,desc:`在社交平台上看到一组路人随手拍，正是你死党的伴侣和别人牵手？`,black:`立刻把照片传给死党问明白，不能看着好朋友被戴绿帽。`,red:`装作没看到滑过去，觉得感情的事情外人插手最倒霉。`},
+  {id:`56`,group:`醉与乏`,topic:`路人牙缝卡菜渣`,desc:`地铁上你对面坐着一个气质路人，但牙缝卡了一片大青菜？`,black:`主动礼貌轻声提醒TA，即使可能会让TA尴尬得想跳车。`,red:`在内心憋笑，低头看手机装作不知道，任由TA尴尬一整路。`},
+  {id:`57`,group:`热与诚`,topic:`公共厕所没纸`,desc:`上完厕所发现没有卫生纸，而此时外面只有你最讨厌的同事？`,black:`放下尊严大声向TA求助，事后请TA喝咖啡当破冰契机。`,red:`绝不向死对头示弱，默默在厕所干等一小时用内裤解决。`},
+  {id:`58`,group:`龟与软`,topic:`发现朋友伴侣出轨照片`,desc:`在社交平台上看到一组路人随手拍，正是你好友的伴侣和别人牵手？`,black:`立刻把照片传给好友问明白，不能看着好朋友被戴绿帽。`,red:`装作没看到滑过去，觉得感情的事情外人插手最倒霉。`},
   {id:`59`,group:`热与诚`,topic:`主管叫错你名字`,desc:`入职已经满一年了，高级主管每次在大会上还是把你叫成离职员工？`,black:`当着大会所有人面大声纠正，大方喊出自己的正确姓名。`,red:`默默答应装作什么都没发生，心想反正职位低无所谓。`},
-  {id:`60`,group:`醉与乏`,topic:`聚餐的最后一块肉`,desc:`桌上剩最后一块顶级牛排，大家都想吃但都在客套，气氛微妙？`,black:`毫不客气一筷子夹走塞嘴里，笑着说「那我不客气啦」。`,red:`继续跟大家客套，直到服务员把盘子收走，大家都吃不到。`},
-  {id:`61`,group:`龟与软`,topic:`伴侣和闺蜜聊天`,desc:`发现伴侣私底下经常背着你单独和你的好闺蜜聊天，内容暧昧？`,black:`当面和伴侣吵架对质，要求他立刻删除闺蜜，否则分手。`,red:`默默装大度，但私下悄悄安装监控软件，追踪聊天记录。`},
-  {id:`62`,group:`热与诚`,topic:`同事说你的坏话`,desc:`去茶水间时，不小心听到隔壁同事正在酸你「能力差、只会舔」？`,black:`直接推门进去，冷笑看着他们说「在说我吗？要不要当面聊？」`,red:`假装没听到默默退开，日后在工作合作中暗中给他们挖致命坑。`},
-  {id:`63`,group:`龟与软`,topic:`暗恋对象的邀约`,desc:`暗恋对象突然约你今晚去他家喝酒，但你今天没洗头且内裤破了个洞？`,black:`忍痛拒绝，谎称今天有重要加班，希望完美状态下相处。`,red:`毫不犹豫立刻赴约，心想这千载难逢机会，关灯都一样。`},
-  {id:`64`,group:`热与诚`,topic:`主管的衣服穿反`,desc:`在大会开始前两分钟，你发现大老板西装外套扣错，且拉链没拉？`,black:`立刻快步走过去悄悄提醒，帮他挽回在众人面前的形象。`,red:`装作没看见，心里暗自发笑，准备在大会时看他大出丑。`},
-  {id:`65`,group:`醉与乏`,topic:`看电影被挡住`,desc:`电影院里前排坐了一个身高190的大汉，还戴着高帽子挡住大半屏幕？`,black:`轻拍他的肩膀，礼貌请他把帽子拿下或坐低点，捍卫观影权。`,red:`默默忍受，全场歪着脑袋从缝隙中勉強看，不愿发生冲突。`},
-  {id:`66`,group:`醉与乏`,topic:`路人情侣吵架`,desc:`路过街头看到一对情侣激烈争吵，男生突然动手猛推了女生一把？`,black:`立刻挺身而出大喝「住手！」并挡在女生面前，阻止暴力。`,red:`装作没事加快脚步走开，或者躲在远处录像，深怕挨打。`},
-  {id:`67`,group:`醉与乏`,topic:`朋友借名买车`,desc:`从小到大的挚友因为信用破产，求你用你的名字帮他贷款买豪车？`,black:`果断拒绝，说「亲兄弟明算账，我们不要拿信用开玩笑」。`,red:`讲义气一口答应，相信他绝对会按时还款，不会连累自己。`},
-  {id:`68`,group:`热与诚`,topic:`收到匿名告白`,desc:`工位上突然多了一封匿名情书和精美点心，你怀疑是隔壁讨厌鬼送的？`,black:`当众把巧克力分享给同组人，并把卡片直接丢进垃圾桶。`,red:`默默量起来把甜点吃掉，在群里发个自拍，装作完全不知情。`},
-  {id:`69`,group:`醉与乏`,topic:`偶遇讨厌的亲戚`,desc:`你在国外高档餐厅度假，迎面碰见平时最爱酸你没出息的大姑姑？`,black:`装作没看见，戴上墨镜，和伴侣直接转头融入人群逃跑。`,red:`大方走过去打招呼，故意点一桌最贵的菜，开始吹嘘暴富。`},
-  {id:`70`,group:`热与诚`,topic:`发现同事桌上的简历`,desc:`经过同组得力助手的办公桌，看见他屏幕开着竞品公司的面谈信？`,black:`立刻向主管打小报告，让公司提早准备替代，避免进度崩盘。`,red:`装作没看见，私下约他喝咖啡，聊聊遇到了什么职业瓶颈。`},
-  {id:`71`,group:`龟与软`,topic:`发现伴侣的密码`,desc:`无意中记下了伴侣的手机解锁密码，这时的第一反应是？`,black:`趁他洗澡时翻阅所有微信记录和相册，看看隐藏了什么。`,red:`强迫自己忘记密码，深信信任是感情唯一防线，绝不偷看。`},
-  {id:`72`,group:`热与诚`,topic:`同事向你表白`,desc:`平时交情不错的组内同事突然跟你深情表白，但你对他无感？`,black:`当场果断拒绝，主动减少工作外的联系，避免给虚假希望。`,red:`委婉拒绝说想拼事业，但是私底下依然常约吃饭享受暧昧。`},
-  {id:`73`,group:`醉与乏`,topic:`朋友做菜超难吃`,desc:`去死党家聚餐，他辛苦做了五个小时，结果每一道都咸到发苦？`,black:`诚实说太咸了，建议大家改点麦当劳外卖，别折磨肠胃。`,red:`拼命一边喝水一边硬吞下去，大赞「简直是米其林水准！」`},
+  {id:`60`,group:`醉与乏`,topic:`聚餐的最后一块肉`,desc:`桌上剩最后一块顶级肉排，大家都想吃但都在客套，气氛微妙？`,black:`毫不客气一筷子夹走塞嘴里，笑着说"那我不客气啦"。`,red:`继续跟大家客套，直到服务员把盘子收走，大家都吃不到。`},
+  {id:`61`,group:`龟与软`,topic:`伴侣和好友聊天`,desc:`发现伴侣私底下经常背着你单独和你的好友聊天，内容暧昧？`,black:`当面和伴侣吵架对质，要求TA立刻删除好友，否则分手。`,red:`默默装大度，但私下悄悄安装监控软件，追踪聊天记录。`},
+  {id:`62`,group:`热与诚`,topic:`同事说你的坏话`,desc:`去茶水间时，不小心听到隔壁同事正在酸你"能力差、只会舔"？`,black:`直接推门进去，冷笑看着他们说"在说我吗？要不要当面聊？"`,red:`假装没听到默默退开，日后在工作合作中暗中给他们挖致命坑。`},
+  {id:`63`,group:`龟与软`,topic:`暗恋对象的邀约`,desc:`暗恋对象突然约你今晚去TA家喝酒，但你今天没洗头且内衣破了个洞？`,black:`忍痛拒绝，谎称今天有重要加班，希望完美状态下相处。`,red:`毫不犹豫立刻赴约，心想这千载难逢机会，关灯都一样。`},
+  {id:`64`,group:`热与诚`,topic:`主管的衣服穿反`,desc:`在大会开始前两分钟，你发现大老板西装外套扣错，且拉链没拉？`,black:`立刻快步走过去悄悄提醒，帮TA挽回在众人面前的形象。`,red:`装作没看见，心里暗自发笑，准备在大会时看TA大出丑。`},
+  {id:`65`,group:`醉与乏`,topic:`看电影被挡住`,desc:`电影院里前排坐了一个高个子，还戴着高帽子挡住大半屏幕？`,black:`轻拍TA的肩膀，礼貌请TA把帽子拿下或坐低点，捍卫观影权。`,red:`默默忍受，全场歪着脑袋从缝隙中勉强看，不愿发生冲突。`},
+  {id:`66`,group:`醉与乏`,topic:`路人情侣吵架`,desc:`路过街头看到一对情侣激烈争吵，其中一方突然动手猛推了另一方一把？`,black:`立刻挺身而出大喝"住手！"并挡在受害者面前，阻止暴力。`,red:`装作没事加快脚步走开，或者躲在远处录像，深怕挨打。`},
+  {id:`67`,group:`醉与乏`,topic:`朋友借名买车`,desc:`从小到大的挚友因为信用破产，求你用你的名字帮TA贷款买豪车？`,black:`果断拒绝，说"亲兄弟明算账，我们不要拿信用开玩笑"。`,red:`讲义气一口答应，相信TA绝对会按时还款，不会连累自己。`},
+  {id:`68`,group:`热与诚`,topic:`收到匿名告白`,desc:`工位上突然多了一封匿名情书和精美点心，你怀疑是隔壁讨厌鬼送的？`,black:`当众把点心分享给同组人，并把卡片直接丢进垃圾桶。`,red:`默默把甜点吃掉，在群里发个自拍，装作完全不知情。`},
+  {id:`69`,group:`醉与乏`,topic:`偶遇讨厌的亲戚`,desc:`你在国外高档餐厅度假，迎面碰见平时最爱酸你没出息的亲戚？`,black:`装作没看见，戴上墨镜，和伴侣直接转头融入人群逃跑。`,red:`大方走过去打招呼，故意点一桌最贵的菜，开始吹嘘暴富。`},
+  {id:`70`,group:`热与诚`,topic:`发现同事桌上的简历`,desc:`经过同组得力助手的办公桌，看见TA屏幕开着竞品公司的面谈信？`,black:`立刻向主管打小报告，让公司提早准备替代，避免进度崩盘。`,red:`装作没看见，私下约TA喝咖啡，聊聊遇到了什么职业瓶颈。`},
+  {id:`71`,group:`龟与软`,topic:`发现伴侣的密码`,desc:`无意中记下了伴侣的手机解锁密码，这时的第一反应是？`,black:`趁TA洗澡时翻阅所有聊天记录和相册，看看隐藏了什么。`,red:`强迫自己忘记密码，深信信任是感情唯一防线，绝不偷看。`},
+  {id:`72`,group:`热与诚`,topic:`同事向你表白`,desc:`平时交情不错的组内同事突然跟你深情表白，但你对TA无感？`,black:`当场果断拒绝，主动减少工作外的联系，避免给虚假希望。`,red:`委婉拒绝说想拼事业，但是私底下依然常约吃饭享受暧昧。`},
+  {id:`73`,group:`醉与乏`,topic:`朋友做菜超难吃`,desc:`去好友家聚餐，TA辛苦做了五个小时，结果每一道都咸到发苦？`,black:`诚实说太咸了，建议大家改点外卖，别折磨肠胃。`,red:`拼命一边喝水一边硬吞下去，大赞"简直是米其林水准！"`},
   {id:`74`,group:`热与诚`,topic:`在电梯遇到大老板`,desc:`只有你和大老板两个人被困在故障的电梯里，预估要等待半小时？`,black:`保持安静默默低头看手机，免得说错话，祈祷快点修好。`,red:`把握千载难逢机会，热烈向老板介绍自己对新项目的规划。`},
-  {id:`75`,group:`热与诚`,topic:`主管要你做违法的事`,desc:`主管暗示你在今年财报上稍微「做点调整」，否则今年升职无望？`,black:`坚定拒绝，暗中保留所有通告和录音，直接向高层举报。`,red:`乖乖听话照做，反正出事有主管顶着，自己的前途更重要。`},
-  {id:`76`,group:`醉与乏`,topic:`同学新生的红包`,desc:`多年不联络的同学在群里发他刚出生孩子的照片，大家都在包红包？`,black:`默默潜水装作没看到，反正以前交情一般，不必浪费人情钱。`,red:`默默转账一千块过去并送上祝福，觉得一辈子大喜值得捧场。`},
-  {id:`77`,group:`热与诚`,topic:`撞衫讨厌的同事`,desc:`上班发现自己和办公室里平时最讨厌的同事，穿了一模一样的限量卫衣？`,black:`立刻在厕所把衣服换掉塞进包包，今天受冻也绝对不撞衫。`,red:`大方走过去跟他合照发朋友圈，说「我们的眼光真是一流！」`},
-  {id:`78`,group:`龟与软`,topic:`发现自己是备胎`,desc:`交往半年的女神，原来在她的微信里，你只是个备注「工具人3」的备胎？`,black:`当场彻底撕破脸，把她的所作所为曝光在朋友圈，断绝关系。`,red:`隐忍不发，继续当称职温和的备胎，暗中寻找反客为主机会。`},
-  {id:`79`,group:`热与诚`,topic:`同事在背后说主管坏话`,desc:`同组同事在茶水间疯狂痛骂主管没能力，此时主管正站在门后？`,black:`大声打断并转头对门外喊「主管早！」主动划清界限表忠心。`,red:`保持沉默微笑点头，不发表意见，默默退后看他待会怎么死。`},
+  {id:`75`,group:`热与诚`,topic:`主管要你做违法的事`,desc:`主管暗示你在今年财报上稍微"做点调整"，否则今年升职无望？`,black:`坚定拒绝，暗中保留所有通告和录音，直接向高层举报。`,red:`乖乖听话照做，反正出事有主管顶着，自己的前途更重要。`},
+  {id:`76`,group:`醉与乏`,topic:`同学新生的红包`,desc:`多年不联络的同学在群里发TA刚出生孩子的照片，大家都在包红包？`,black:`默默潜水装作没看到，反正以前交情一般，不必浪费人情钱。`,red:`默默转账一千块过去并送上祝福，觉得一辈子大喜值得捧场。`},
+  {id:`77`,group:`热与诚`,topic:`撞衫讨厌的同事`,desc:`上班发现自己和办公室里平时最讨厌的同事，穿了一模一样的限量衣服？`,black:`立刻在厕所把衣服换掉塞进包包，今天受冻也绝对不撞衫。`,red:`大方走过去跟TA合照发朋友圈，说"我们的眼光真是一流！"`},
+  {id:`78`,group:`龟与软`,topic:`发现自己是备胎`,desc:`交往半年的心仪对象，原来在TA的聊天软件里，你只是个备注"工具人3"的备胎？`,black:`当场彻底撕破脸，把TA的所作所为曝光在朋友圈，断绝关系。`,red:`隐忍不发，继续当称职温和的备胎，暗中寻找反客为主机会。`},
+  {id:`79`,group:`热与诚`,topic:`同事在背后说主管坏话`,desc:`同组同事在茶水间疯狂痛骂主管没能力，此时主管正站在门后？`,black:`大声打断并转头对门外喊"主管早！"主动划清界限表忠心。`,red:`保持沉默微笑点头，不发表意见，默默退后看TA待会怎么死。`},
   {id:`80`,group:`热与诚`,topic:`发现同事偷文具`,desc:`看见平时人缘极佳的同事，天天把公司的昂贵卫生纸、零食带回家？`,black:`写匿名信给审计部门检举，不能容忍这种败坏道德的行为。`,red:`装作没看见，心想这点小东西公司不在乎，甚至自己也拿点。`},
-  {id:`81`,group:`龟与软`,topic:`伴侣和前任联络`,desc:`发现伴侣微信置顶依然是前任，且每天分享日常琐事？`,black:`当场大发雷霆，要求当面立刻拉黑，否则感情直接到此为止。`,red:`不表露不满，私下也开始跟其他异性热聊，实施对等报复。`},
-  {id:`82`,group:`醉与乏`,topic:`平庸同学的婚礼`,desc:`高中平时没交集的同学发请帖，但婚礼地点在偏远的深山度假村？`,black:`直接阻拒，转账 200 块红包，省去车马费和两天的折腾。`,red:`排除万难坐高铁转大巴参加，觉得一辈子就一次，支持重要。`},
-  {id:`83`,group:`醉与乏`,topic:`路人踩到你的新鞋`,desc:`穿着刚落地的一万元限量版白球鞋，在地铁上被踩了个大黑印？`,black:`立刻面色阴沉瞪他，要求当场道歉，甚至要求赔偿清洁费。`,red:`微笑摆手说没关系，心里滴血，到公司立刻找橡皮擦猛擦。`},
-  {id:`84`,group:`热与诚`,topic:`发现主管出轨`,desc:`偶然看见主管逛街时亲密搂着年轻辣妹，而他老婆昨天刚生二胎？`,black:`偷偷拍下照片，回公司后用来暗示主管在晋升上多多关照。`,red:`彻底遗忘这事，绝不插手、不留照片，生怕被主管灭口。`},
-  {id:`85`,group:`醉与乏`,topic:`朋友的创业邀请`,desc:`好友辞去高薪求你合伙创业，卖他发明的「肉松香草味冰淇淋」？`,black:`劈头盖脸痛骂这产品必倒闭，劝他快回去上班，别异想天开。`,red:`表面赞赏「有创意我支持」，但私下不投一分钱，找借口推托。`},
-  {id:`86`,group:`龟与软`,topic:`看电影被剧透`,desc:`刚排队买完大片票，旁边走出来的人大喊「原来主角最后死掉了」？`,black:`当场暴怒冲过去揪住他的领子，痛骂他剧透没公德心和素质。`,red:`默默去售票处把票退掉，改看别部，心情直接跌入谷底。`},
-  {id:`87`,group:`热与诚`,topic:`同事要你帮忙代购`,desc:`知道你要去日本玩，同事列了张包含三台大吹风机和五台电饭煲的单子？`,black:`直接拒绝「我这次只带小箱，行程极赶，完全没时间代购」。`,red:`大方答应，但每件商品汇率上主动加 15% 作为自己的跑腿费。`},
-  {id:`88`,group:`龟与软`,topic:`发现朋友的秘密日记`,desc:`去死党家借宿，不小心在桌上看到他的日记，上面写满了你的坏话？`,black:`当场拿着日记去質問他「你原来一直把我当傻子？」直接绝交。`,red:`假装没看见放回原处，但从此对他保留戒心，不再付出真心。`},
-  {id:`89`,group:`热与诚`,topic:`主管发语音长消息`,desc:`下班后，主管在微信连续发了 10 条每条长达 60 秒的语音消息？`,black:`一条都不听，直接回复「收到，明天上班我第一时间处理」。`,red:`一字不落听完，并用详细文字回复，展现极佳的职业素养。`},
-  {id:`90`,group:`醉与乏`,topic:`朋友的难看新衣`,desc:`闺蜜穿了件显胖又像裹了床单的大衣问你「这衣服特别适合我对吧」？`,black:`诚实跟她说太显胖了，完全拉低了气质，劝她赶紧退货。`,red:`大力吹捧「天啊简直是复古高定风！走街上回头率百分百！」`},
-  {id:`91`,group:`热与诚`,topic:`同事借笔不还`,desc:`交情一般的同事借了你珍藏的万宝龙钢笔，三个星期过去了没提？`,black:`直接在大群组里艾特他「你三个星期前借我的钢笔用完了吗？」`,red:`不好意思开口，自己默默买支新的，心想可能是他忘性大。`},
-  {id:`92`,group:`醉与乏`,topic:`外国人问路考验`,desc:`路上被急切的外国人问路，但你英文极差完全听不懂他说什么？`,black:`尴尬微笑，摆手大喊「No English!」然后在众目睽睽下逃跑。`,red:`用手势配合地图，花半小时亲自带他走到，完成民间外交。`},
-  {id:`93`,group:`醉与乏`,topic:`聚餐遇到不付钱的人`,desc:`聚会结账时说好 AA，有人说「我今天忘记带卡，下次再转你」？`,black:`当场拿出收钱码递过去「手机转账很方便，我在这等你转好」。`,red:`默默帮他垫付，以后此人永久进入你的聚餐黑名单。`},
-  {id:`94`,group:`热与诚`,topic:`主管的 PPT 做错`,desc:`发现主管下午要在董事会展示的 PPT 利润少写了两个零？`,black:`立刻在公司大群组发出来提醒，表示自己帮改好了展现细心。`,red:`私下发微信提醒，把修改好的新版悄悄私发给他维护面子。`},
-  {id:`95`,group:`龟与软`,topic:`路人插队的修罗场`,desc:`排队三小时买到限定公仔，一个一脸横肉的大汉强行插队你前面？`,black:`毫不畏惧拍他肩膀，大声斥责「先生，请后面排队，大家都在等！」`,red:`默默忍受退后一步，心想多一事不如少一事，万一有凶器不值。`},
-  {id:`96`,group:`醉与乏`,topic:`暴富后的死党借钱`,desc:`得知你中了一亿大奖，从小长大的死党因生意破产求借一千万？`,black:`二话不说直接打款，说「是兄弟就不用写借条，有钱再还」。`,red:`委婉拒绝说钱被家人信托了，承诺可以帮他找工作介绍人脉。`},
+  {id:`81`,group:`龟与软`,topic:`伴侣和前任联络`,desc:`发现伴侣聊天软件置顶依然是前任，且每天分享日常琐事？`,black:`当场大发雷霆，要求当面立刻拉黑，否则感情直接到此为止。`,red:`不表露不满，私下也开始跟其他异性热聊，实施对等报复。`},
+  {id:`82`,group:`醉与乏`,topic:`平庸同学的婚礼`,desc:`平时没交集的同学发请帖，但婚礼地点在偏远的深山度假村？`,black:`直接拒绝，转账200块红包，省去车马费和两天的折腾。`,red:`排除万难坐高铁转大巴参加，觉得一辈子就一次，支持重要。`},
+  {id:`83`,group:`醉与乏`,topic:`路人踩到你的新鞋`,desc:`穿着刚落地的一万元限量版白球鞋，在地铁上被踩了个大黑印？`,black:`立刻面色阴沉瞪TA，要求当场道歉，甚至要求赔偿清洁费。`,red:`微笑摆手说没关系，心里滴血，到公司立刻找橡皮擦猛擦。`},
+  {id:`84`,group:`热与诚`,topic:`发现主管出轨`,desc:`偶然看见主管逛街时亲密搂着年轻异性，而TA伴侣昨天刚生二胎？`,black:`偷偷拍下照片，回公司后用来暗示主管在晋升上多多关照。`,red:`彻底遗忘这事，绝不插手、不留照片，生怕被主管灭口。`},
+  {id:`85`,group:`醉与乏`,topic:`朋友的创业邀请`,desc:`好友辞去高薪求你合伙创业，卖TA发明的"肉松香草味冰淇淋"？`,black:`劈头盖脸痛骂这产品必倒闭，劝TA快回去上班，别异想天开。`,red:`表面赞赏"有创意我支持"，但私下不投一分钱，找借口推托。`},
+  {id:`86`,group:`龟与软`,topic:`看电影被剧透`,desc:`刚排队买完大片票，旁边走出来的人大喊"原来主角最后死掉了"？`,black:`当场暴怒冲过去揪住TA的领子，痛骂TA剧透没公德心和素质。`,red:`默默去售票处把票退掉，改看别部，心情直接跌入谷底。`},
+  {id:`87`,group:`热与诚`,topic:`同事要你帮忙代购`,desc:`知道你要去旅游，同事列了张包含三台大吹风机和五台电饭煲的单子？`,black:`直接拒绝"我这次只带小箱，行程极赶，完全没时间代购"。`,red:`大方答应，但每件商品汇率上主动加15%作为自己的跑腿费。`},
+  {id:`88`,group:`龟与软`,topic:`发现朋友的秘密日记`,desc:`去好友家借宿，不小心在桌上看到TA的日记，上面写满了你的坏话？`,black:`当场拿着日记去质问TA"你原来一直把我当傻子？"直接绝交。`,red:`假装没看见放回原处，但从此对TA保留戒心，不再付出真心。`},
+  {id:`89`,group:`热与诚`,topic:`主管发语音长消息`,desc:`下班后，主管在聊天软件连续发了10条每条长达60秒的语音消息？`,black:`一条都不听，直接回复"收到，明天上班我第一时间处理"。`,red:`一字不落听完，并用详细文字回复，展现极佳的职业素养。`},
+  {id:`90`,group:`醉与乏`,topic:`朋友的难看新衣`,desc:`好友穿了件显胖又像裹了床单的大衣问你"这衣服特别适合我对吧"？`,black:`诚实跟TA说太显胖了，完全拉低了气质，劝TA赶紧退货。`,red:`大力吹捧"天啊简直是复古高定风！走街上回头率百分百！"`},
+  {id:`91`,group:`热与诚`,topic:`同事借笔不还`,desc:`交情一般的同事借了你珍藏的万宝龙钢笔，三个星期过去了没提？`,black:`直接在大群组里艾特TA"你三个星期前借我的钢笔用完了吗？"`,red:`不好意思开口，自己默默买支新的，心想可能是TA忘性大。`},
+  {id:`92`,group:`醉与乏`,topic:`外国人问路考验`,desc:`路上被急切的外国人问路，但你外语极差完全听不懂TA说什么？`,black:`尴尬微笑，摆手大喊"No English!"然后在众目睽睽下逃跑。`,red:`用手势配合地图，花半小时亲自带TA走到，完成民间外交。`},
+  {id:`93`,group:`醉与乏`,topic:`聚餐遇到不付钱的人`,desc:`聚会结账时说好AA，有人说"我今天忘记带卡，下次再转你"？`,black:`当场拿出收钱码递过去"手机转账很方便，我在这等你转好"。`,red:`默默帮TA垫付，以后此人永久进入你的聚餐黑名单。`},
+  {id:`94`,group:`热与诚`,topic:`主管的PPT做错`,desc:`发现主管下午要在董事会展示的PPT利润少写了两个零？`,black:`立刻在公司大群组发出来提醒，表示自己帮改好了展现细心。`,red:`私下发信息提醒，把修改好的新版悄悄私发给TA维护面子。`},
+  {id:`95`,group:`龟与软`,topic:`路人插队的修罗场`,desc:`排队三小时买到限定公仔，一个一脸横肉的人强行插队你前面？`,black:`毫不畏惧拍TA肩膀，大声斥责"请后面排队，大家都在等！"`,red:`默默忍受退后一步，心想多一事不如少一事，万一有凶器不值。`},
+  {id:`96`,group:`醉与乏`,topic:`暴富后的好友借钱`,desc:`得知你中了一亿大奖，从小长大的好友因生意破产求借一千万？`,black:`二话不说直接打款，说"是朋友就不用写借条，有钱再还"。`,red:`委婉拒绝说钱被家人信托了，承诺可以帮TA找工作介绍人脉。`},
 ];
 
 // ── APP STATE ─────────────────────────────────────────────────────────────
@@ -506,6 +514,17 @@ let selectedRole = null;
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 window.onload = () => {
+  // Generate QR code
+  try {
+    new QRCode(document.getElementById('loginQrCode'), {
+      text: GAME_URL,
+      width: 128, height: 128,
+      colorDark: '#f1f5f9',
+      colorLight: '#0f172a',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  } catch(e) { console.warn('QR code failed', e); }
+
   const saved = lsGet('mw_identity');
   if (saved) { identity = saved; showScreen('group'); }
   else        { showScreen('login'); }
@@ -666,7 +685,7 @@ function renderCard() {
   document.getElementById('deckProgressLabel').textContent = `${pointer + 1}/${groupCards.length}`;
   resetSettleUI();
   restoreVoteState(card.id);
-  updateManualBtn();   // sync toggle button state
+  updateManualBtn();
 }
 
 function restoreVoteState(cardId) {
@@ -693,12 +712,11 @@ function resetSettleUI() {
   document.getElementById('blackCountInput').value = '0';
   document.getElementById('redCountInput').value   = '0';
   document.getElementById('hostGameStateLabel').textContent = '投票中';
-  // 重置即时票数面板
   const liveEl = document.getElementById('liveBlackCount');
   const liveRd = document.getElementById('liveRedCount');
   if (liveEl) liveEl.textContent = '—';
   if (liveRd) liveRd.textContent = '—';
-  if (GAS_URL) fetchVoteCounts();   // auto-refresh for new card
+  if (GAS_URL) fetchVoteCounts();
 }
 
 // ── NAVIGATION ────────────────────────────────────────────────────────────
@@ -765,26 +783,19 @@ function hostSettle() {
   if (GAS_URL) gasSettle(groupCards[pointer].id, b, r, minority);
 }
 
-// ── MANUAL +1 TOGGLE (per card, reversible) ───────────────────────────────
+// ── MANUAL +1 TOGGLE ─────────────────────────────────────────────────────
 function manualMinorityAdd() {
   const card = groupCards[pointer];
   if (!card) return;
   const allVotes = lsGet('mw_voted_' + currentGroup) || {};
-
   if (allVotes[card.id]) {
-    // Already counted → undo
     delete allVotes[card.id];
     lsSet('mw_voted_' + currentGroup, allVotes);
-    addScore(-1);
-    floatPoint('-1');
-    playSynth('click');
+    addScore(-1); floatPoint('-1'); playSynth('click');
   } else {
-    // Not yet counted → add
     allVotes[card.id] = true;
     lsSet('mw_voted_' + currentGroup, allVotes);
-    addScore(1);
-    floatPoint('+1');
-    playSynth('score');
+    addScore(1); floatPoint('+1'); playSynth('score');
   }
   updateManualBtn();
 }
@@ -795,7 +806,6 @@ function updateManualBtn() {
   const card = groupCards[pointer];
   if (!card) return;
   const voted = !!(lsGet('mw_voted_' + currentGroup) || {})[card.id];
-
   if (voted) {
     btn.className = 'w-full py-4 rounded-2xl bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-black text-sm tracking-widest shadow-lg active:scale-95 transition flex items-center justify-center space-x-2 border border-red-400/20';
     btn.innerHTML = `<i class="fa-solid fa-rotate-left animate-pulse"></i><span>已是少数派 · 再按取消 (-1)</span>`;
@@ -882,7 +892,7 @@ function closeRules() {
   m.classList.add('hidden'); m.classList.remove('flex');
 }
 
-// ── SETTLE MODAL (participant result popup) ───────────────────────────────
+// ── SETTLE MODAL ──────────────────────────────────────────────────────────
 function showSettleModal(isMinority, blackCount, redCount, myVote) {
   const modal = document.getElementById('settleModal');
   const total = blackCount + redCount;
@@ -922,7 +932,7 @@ document.addEventListener('keydown', e => {
   if (document.getElementById('loginScreen').classList.contains('active') && e.key === 'Enter') confirmLogin();
 });
 
-// ── GAS API STUBS ─────────────────────────────────────────────────────────
+// ── GAS API ───────────────────────────────────────────────────────────────
 async function gasSubmitVote(cardId, choice) {
   if (!GAS_URL) return;
   try {
@@ -961,7 +971,7 @@ async function gasPollState() {
 function startPoll() { stopPoll(); pollTimer = setInterval(gasPollState, POLL_INTERVAL_MS); }
 function stopPoll()  { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
-// ── HOST VOTE POLLING (GAS) ──────────────────────────────────────────────
+// ── HOST VOTE POLLING ─────────────────────────────────────────────────────
 let hostPollTimer = null;
 
 async function fetchVoteCounts() {
@@ -987,6 +997,75 @@ function syncVoteCountsToInputs() {
 }
 
 function startHostPoll() {
+  stopHostPoll();
+  document.getElementById('hostLiveVotes').classList.remove('hidden');
+  fetchVoteCounts();
+  hostPollTimer = setInterval(fetchVoteCounts, POLL_INTERVAL_MS);
+}
+
+function stopHostPoll() {
+  if (hostPollTimer) { clearInterval(hostPollTimer); hostPollTimer = null; }
+  const el = document.getElementById('hostLiveVotes');
+  if (el) el.classList.add('hidden');
+}
+
+function playSynth(type) {
+  try {
+    const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if (type === 'slide') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(220, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(350, ctx.currentTime + .12);
+      gain.gain.setValueAtTime(.1, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.01, ctx.currentTime + .12);
+      osc.start(); osc.stop(ctx.currentTime + .12);
+    } else if (type === 'score') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523, ctx.currentTime);
+      osc.frequency.setValueAtTime(659, ctx.currentTime + .08);
+      gain.gain.setValueAtTime(.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.01, ctx.currentTime + .35);
+      osc.start(); osc.stop(ctx.currentTime + .35);
+    } else {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      gain.gain.setValueAtTime(.05, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(.01, ctx.currentTime + .05);
+      osc.start(); osc.stop(ctx.currentTime + .05);
+    }
+  } catch(e) {}
+}
+
+function toast(msg) {
+  document.querySelectorAll('.custom-toast').forEach(e => e.remove());
+  const div = document.createElement('div');
+  div.className = 'custom-toast fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-slate-900 border border-slate-800 text-slate-100 text-xs px-4 py-2.5 rounded-full shadow-2xl font-bold transition-all duration-300 opacity-0 translate-y-3 text-center w-max max-w-[85vw]';
+  div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(() => div.classList.remove('opacity-0','translate-y-3'), 50);
+  setTimeout(() => { div.classList.add('opacity-0','translate-y-3'); setTimeout(() => div.remove(), 250); }, 2500);
+}
+
+function lsGet(k)    { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+function lsRemove(k) { try { localStorage.removeItem(k); } catch {} }
+</script>
+</body>
+</html>
+'translate-y-3'), 50);
+  setTimeout(() => { div.classList.add('opacity-0','translate-y-3'); setTimeout(() => div.remove(), 250); }, 2500);
+}
+
+// ── LOCALSTORAGE HELPERS ──────────────────────────────────────────────────
+function lsGet(k)    { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+function lsRemove(k) { try { localStorage.removeItem(k); } catch {} }
+</script>
+</body>
+</html> startHostPoll() {
   stopHostPoll();
   document.getElementById('hostLiveVotes').classList.remove('hidden');
   fetchVoteCounts();
